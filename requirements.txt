@@ -1,0 +1,11 @@
+
+streamlit
+requests
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+google-genai
+SpeechRecognition
+pyttsx3
+ollama
