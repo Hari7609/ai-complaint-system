@@ -1,13 +1,14 @@
 import streamlit as st
-import requests
 from datetime import datetime
+import backend as complaint_backend
+from fastapi import HTTPException
 
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-BACKEND_URL = "http://127.0.0.1:8000"
+# Backend functions run in the same Streamlit process on Streamlit Cloud.
 
 
 st.set_page_config(
@@ -165,89 +166,37 @@ def t(english, tamil):
 # ============================================================
 
 def get_complaints():
-
+    """Read complaints directly from the app's database."""
     try:
-
-        response = requests.get(
-            f"{BACKEND_URL}/complaints/",
-            timeout=5
-        )
-
-        if response.status_code == 200:
-
-            return response.json()
-
+        return complaint_backend.get_complaints()
     except Exception:
-
         return []
 
-    return []
 
-
-def submit_complaint(
-    name,
-    email,
-    category,
-    text
-):
-
+def submit_complaint(name, email, category, text):
+    """Analyze and save a complaint without calling localhost over HTTP."""
     try:
-
-        response = requests.post(
-
-            f"{BACKEND_URL}/complaints/",
-
-            json={
-                "name": name,
-                "email": email,
-                "category": category,
-                "text": text
-            },
-
-            timeout=60
+        payload = complaint_backend.ComplaintCreate(
+            name=name,
+            email=email,
+            category=category,
+            text=text,
         )
-
-        if response.status_code == 200:
-
-            return True, response.json()
-
-        try:
-            message = response.json().get(
-                "detail",
-                "Unable to submit complaint."
-            )
-        except:
-            message = "Unable to submit complaint."
-
-        return False, message
-
+        result = complaint_backend.create_complaint(payload)
+        return True, result
+    except HTTPException as e:
+        return False, e.detail
     except Exception as e:
-
         return False, str(e)
 
 
-def update_status(
-    complaint_id,
-    status
-):
-
+def update_status(complaint_id, status):
+    """Update status directly through the backend function."""
     try:
-
-        response = requests.patch(
-
-            f"{BACKEND_URL}/complaints/{complaint_id}/status",
-
-            json={
-                "status": status
-            },
-
-            timeout=10
-        )
-
-        return response.status_code == 200
-
-    except:
-
+        payload = complaint_backend.StatusUpdate(status=status)
+        complaint_backend.update_status(complaint_id, payload)
+        return True
+    except Exception:
         return False
 
 
@@ -695,16 +644,9 @@ elif page in [
                     .replace("CMP-", "")
                 )
 
-                response = requests.get(
+                complaint = complaint_backend.get_complaint(numeric_id)
 
-                    f"{BACKEND_URL}/complaints/{numeric_id}",
-
-                    timeout=10
-                )
-
-                if response.status_code == 200:
-
-                    complaint = response.json()
+                if complaint:
 
                     st.markdown(
                         f"""
@@ -771,6 +713,15 @@ elif page in [
                     t(
                         "Invalid ticket format. Example: CMP-000001",
                         "தவறான டிக்கெட் வடிவம். உதாரணம்: CMP-000001"
+                    )
+                )
+
+            except HTTPException:
+
+                st.error(
+                    t(
+                        "Ticket not found.",
+                        "டிக்கெட் கிடைக்கவில்லை."
                     )
                 )
 
